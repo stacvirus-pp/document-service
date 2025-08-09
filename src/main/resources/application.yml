@@ -1,0 +1,12 @@
+server:
+  port: 9900
+spring:
+  application:
+    name: hotel-document
+minio:
+  url: "http://localhost:9000"
+  access:
+    name: "W7JAWD8uTgAWWeTrhg6s"
+    secret: "yQmehszGSgYPn4By1CdF1TwEEFJFWGto7S43TwIH"
+  bucket:
+    name: test

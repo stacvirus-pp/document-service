@@ -20,6 +20,13 @@ repositories {
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
+
+	implementation("io.minio:minio:8.5.17")
+	implementation("org.projectlombok:lombok:1.18.38")
+
+	annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
+	annotationProcessor("org.projectlombok:lombok")
+
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
