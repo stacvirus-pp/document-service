@@ -2,9 +2,11 @@ package com.stac.document.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
 
 @Data
-@ConfigurationProperties(prefix = "spring.minio")
+@ConfigurationProperties(prefix = "minio")
+@Configuration
 public class MinioProperties {
   private String url;
   private Access access;

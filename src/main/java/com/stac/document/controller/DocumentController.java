@@ -1,8 +1,8 @@
 package com.stac.document.controller;
 
+import com.stac.document.config.MinioProperties;
 import com.stac.document.service.StorageService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,11 +17,7 @@ import java.io.IOException;
 @RequestMapping("/api/v1/documents")
 public class DocumentController {
   private final StorageService service;
-
-  @Value("${minio.bucket.name}")
-  private String bucketName;
-  @Value("${minio.url}")
-  private String minioUrl;
+  private final MinioProperties properties;
 
   @PostMapping("/upload")
   public ResponseEntity<String> uploadDocument(
@@ -32,8 +28,8 @@ public class DocumentController {
         return ResponseEntity.badRequest().body("File is empty");
       }
       String objectName = file.getOriginalFilename();
-      String savedObjectName = service.uploadFile(bucketName, objectName, file.getInputStream(), file.getContentType());
-      String minioFileUrl = String.format("%s/%s/%s",minioUrl, bucketName, savedObjectName);
+      String savedObjectName = service.uploadFile(properties.getBucket().getName(), objectName, file.getInputStream(), file.getContentType());
+      String minioFileUrl = String.format("%s/%s/%s",properties.getUrl(), properties.getBucket().getName(), savedObjectName);
       return ResponseEntity.ok(minioFileUrl);
     } catch (IOException e) {
       return ResponseEntity.status(500).body("Failed to upload file: "+e.getMessage());
