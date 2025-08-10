@@ -3,6 +3,9 @@ server:
 spring:
   application:
     name: hotel-document
+  output:
+    ansi:
+      enabled: ALWAYS
 minio:
   url: "http://localhost:9000"
   access:
