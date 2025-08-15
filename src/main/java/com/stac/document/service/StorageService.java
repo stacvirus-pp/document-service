@@ -58,9 +58,7 @@ public class StorageService {
   }
 
   @Async
-  public CompletableFuture<List<String>> uploadFiles(
-    List<MultipartFile> files
-  ) {
+  public CompletableFuture<List<String>> uploadFiles(List<MultipartFile> files) {
     if (files == null || files.isEmpty())
       throw new DocumentUploadException(HttpStatus.BAD_REQUEST, "Files are empty");
     return CompletableFuture.supplyAsync(() -> {

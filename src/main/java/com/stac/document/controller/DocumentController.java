@@ -30,6 +30,6 @@ public class DocumentController {
     @RequestParam("files") List<MultipartFile> files
     ) {
     return service.uploadFiles(files)
-      .thenApply(savedObjectUrls -> ResponseEntity.ok(savedObjectUrls));
+      .thenApply(ResponseEntity::ok);
   }
 }
