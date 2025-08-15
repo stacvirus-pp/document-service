@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequiredArgsConstructor
@@ -25,9 +26,10 @@ public class DocumentController {
   }
 
   @PostMapping("/batch/upload")
-  public ResponseEntity<List<String>> uploadDocuments(
+  public CompletableFuture<ResponseEntity<List<String>>> uploadDocuments(
     @RequestParam("files") List<MultipartFile> files
     ) {
-    return ResponseEntity.ok(service.uploadFiles(files));
+    return service.uploadFiles(files)
+      .thenApply(savedObjectUrls -> ResponseEntity.ok(savedObjectUrls));
   }
 }

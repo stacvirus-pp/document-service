@@ -9,6 +9,7 @@ import io.minio.PutObjectArgs;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,6 +17,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -55,16 +57,18 @@ public class StorageService {
     }
   }
 
-  public List<String> uploadFiles(
+  @Async
+  public CompletableFuture<List<String>> uploadFiles(
     List<MultipartFile> files
   ) {
     if (files == null || files.isEmpty())
       throw new DocumentUploadException(HttpStatus.BAD_REQUEST, "Files are empty");
-    try {
-      String bucketName = properties.getBucket().getName();
-      checkOrCreateBucket(bucketName);
-      return files.stream()
-        .map(file -> {
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        String bucketName = properties.getBucket().getName();
+        checkOrCreateBucket(bucketName);
+        return files.parallelStream()
+          .map(file -> {
             try {
               log.info("Uploading file: {}", file.getOriginalFilename());
               String objectName = formatObjectName(Objects.requireNonNull(file.getOriginalFilename()));
@@ -84,13 +88,13 @@ public class StorageService {
               log.error("error occurred when uploading file: {}", e.getMessage());
               throw new DocumentUploadException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload file: " + e.getMessage());
             }
-          }
-        )
-        .collect(Collectors.toCollection(ArrayList::new));
-    } catch (Exception e) {
-      log.error("error occurred when uploading files: {}", e.getMessage());
-      throw new DocumentUploadException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload files: " + e.getMessage());
-    }
+          })
+          .collect(Collectors.toCollection(ArrayList::new));
+      } catch (Exception e) {
+        log.error("error occurred when uploading files: {}", e.getMessage());
+        throw new DocumentUploadException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload files: " + e.getMessage());
+      }
+    });
   }
 
   private void checkOrCreateBucket(String bucketName) {
