@@ -143,6 +143,16 @@ class StorageServiceTests {
   @Test
   void checkOrCreateBucket_BucketDoesNotExist_CreatesNewBucket() throws Exception {
     // Arrange
+    String fileName = "test file.txt";
+    String expectedLink = "http://minio-server/test-bucket/test_file.txt";
+    InputStream inputStream = new ByteArrayInputStream("test content".getBytes());
+
+    when(minioProperties.getBucket()).thenReturn(bucket);
+    when(minioProperties.getUrl()).thenReturn("http://minio-server");
+    when(multipartFile.isEmpty()).thenReturn(false);
+    when(multipartFile.getOriginalFilename()).thenReturn(fileName);
+    when(multipartFile.getInputStream()).thenReturn(inputStream);
+    when(multipartFile.getContentType()).thenReturn("text/plain");
     when(minioClient.bucketExists(any(BucketExistsArgs.class))).thenReturn(false);
 
     // Act
@@ -182,7 +192,7 @@ class StorageServiceTests {
 //    // Assert
 //    assertEquals(expected, result);
 //  }
-//
+
 //  @Test
 //  void formatLink_CreatesCorrectUrlFormat() {
 //    // Arrange

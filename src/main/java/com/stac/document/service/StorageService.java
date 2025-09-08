@@ -27,9 +27,7 @@ public class StorageService {
   private final MinioClient minioClient;
   private final MinioProperties properties;
 
-  public String uploadFile(
-    MultipartFile file
-  ) {
+  public String uploadFile(MultipartFile file) {
     if (file.isEmpty())
       throw new DocumentUploadException(HttpStatus.BAD_REQUEST, "File is empty");
     try {
