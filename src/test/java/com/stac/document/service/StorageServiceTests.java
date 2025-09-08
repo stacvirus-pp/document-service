@@ -21,9 +21,12 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -129,6 +132,34 @@ class StorageServiceTests {
   }
 
   @Test
+  void uploadFiles_failedUpload_ReturnsErrorMessage() throws Exception {
+    // Arrange
+    String fileName1 = "test1.txt";
+    String fileName2 = "test2.txt";
+    List<MultipartFile> files = Arrays.asList(multipartFile, multipartFile);
+
+    when(minioProperties.getBucket()).thenReturn(bucket);
+    when(multipartFile.getOriginalFilename()).thenReturn(fileName1).thenReturn(fileName2);
+    when(multipartFile.getInputStream())
+      .thenReturn(new ByteArrayInputStream("test1".getBytes()))
+      .thenReturn(new ByteArrayInputStream("test2".getBytes()));
+    when(multipartFile.getContentType()).thenReturn("text/plain");
+    when(minioClient.bucketExists(any(BucketExistsArgs.class))).thenReturn(true);
+    doThrow(new RuntimeException("Minio put object failed")).when(minioClient).putObject(any(PutObjectArgs.class));
+
+    // Act
+    CompletableFuture<List<String>> resultFuture = storageService.uploadFiles(files);
+    CompletionException completionException = assertThrows(CompletionException.class, resultFuture::join);
+    Throwable cause = completionException.getCause();
+
+    // Assert
+    assertTrue(cause instanceof DocumentUploadException, "Cause should be DocumentUploadException");
+    DocumentUploadException exception = (DocumentUploadException) cause;
+    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, exception.getStatusCode());
+    assertTrue(exception.getMessage().contains("Failed to upload file"));
+  }
+
+  @Test
   void uploadFiles_EmptyList_ThrowsDocumentUploadException() {
     // Arrange
     List<MultipartFile> files = Arrays.asList();
@@ -180,29 +211,21 @@ class StorageServiceTests {
     verify(minioClient, never()).makeBucket(any(MakeBucketArgs.class));
   }
 
-//  @Test
-//  void formatObjectName_SpacesInName_ReplacesWithUnderscores() {
-//    // Arrange
-//    String objectName = "test file name.txt";
-//    String expected = "test_file_name.txt";
-//
-//    // Act
-//    String result = storageService.formatObjectName(objectName);
-//
-//    // Assert
-//    assertEquals(expected, result);
-//  }
+  @Test
+  void checkOrCreateBucket_BucketExists_DoesNotCreateBucket_fail_with_minioException() throws Exception {
+    // Arrange
+    when(minioProperties.getBucket()).thenReturn(bucket);
+    when(minioClient.bucketExists(any(BucketExistsArgs.class))).thenReturn(false);
+    when(multipartFile.isEmpty()).thenReturn(false);
+    when(multipartFile.getOriginalFilename()).thenReturn("test.txt");
+    doThrow(new RuntimeException("Minio bucket creation failed")).when(minioClient).makeBucket(any(MakeBucketArgs.class));
 
-//  @Test
-//  void formatLink_CreatesCorrectUrlFormat() {
-//    // Arrange
-//    String objectName = "test.txt";
-//    String expected = "http://minio-server/test-bucket/test.txt";
-//
-//    // Act
-//    String result = storageService.formatLink(objectName);
-//
-//    // Assert
-//    assertEquals(expected, result);
-//  }
+    // Act
+    DocumentUploadException exception = assertThrows(DocumentUploadException.class,
+      () -> storageService.uploadFile(multipartFile));
+
+    // Assert
+    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, exception.getStatusCode());
+    assertTrue(exception.getMessage().contains("Failed to check or create bucket"));
+  }
 }
