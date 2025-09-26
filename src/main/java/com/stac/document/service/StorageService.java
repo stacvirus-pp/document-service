@@ -16,7 +16,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -28,69 +27,23 @@ public class StorageService {
   private final MinioProperties properties;
 
   public String uploadFile(MultipartFile file) {
-    if (file.isEmpty())
-      throw new DocumentUploadException(HttpStatus.BAD_REQUEST, "File is empty");
-    try {
-      log.info("uploading a new file: {}", file.getOriginalFilename());
-      String objectName = formatObjectName(Objects.requireNonNull(file.getOriginalFilename()));
-      String bucketName = properties.getBucket().getName();
-
-      checkOrCreateBucket(bucketName);
-      InputStream inputStream = file.getInputStream();
-      String contentType = file.getContentType();
-      // upload the desired file to the bucket
-      minioClient.putObject(
-        PutObjectArgs.builder()
-          .bucket(bucketName)
-          .object(objectName)
-          .stream(inputStream, inputStream.available(), -1)
-          .contentType(contentType)
-          .build()
-      );
-      log.info("upload successful: {}", objectName);
-      return formatLink(objectName);
-    } catch (Exception e) {
-      log.error("Error occurred when uploading file: {}", e.getMessage());
-      throw new DocumentUploadException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload file: " + e.getMessage());
-    }
+    String bucketName = properties.getBucket().getName();
+    checkOrCreateBucket(bucketName);
+    return processFile(file, bucketName);
   }
 
   @Async
   public CompletableFuture<List<String>> uploadFiles(List<MultipartFile> files) {
-    if (files == null || files.isEmpty())
+    if (files == null || files.isEmpty()) {
       throw new DocumentUploadException(HttpStatus.BAD_REQUEST, "Files are empty");
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        String bucketName = properties.getBucket().getName();
-        checkOrCreateBucket(bucketName);
-        return files.parallelStream()
-          .map(file -> {
-            try {
-              log.info("Uploading file: {}", file.getOriginalFilename());
-              String objectName = formatObjectName(Objects.requireNonNull(file.getOriginalFilename()));
-              InputStream inputStream = file.getInputStream();
-              String contentType = file.getContentType();
-              minioClient.putObject(
-                PutObjectArgs.builder()
-                  .bucket(bucketName)
-                  .object(objectName)
-                  .stream(inputStream, inputStream.available(), -1)
-                  .contentType(contentType)
-                  .build()
-              );
-              log.info("Upload successful: {}", objectName);
-              return formatLink(objectName);
-            } catch (Exception e) {
-              log.error("error occurred when uploading file: {}", e.getMessage());
-              throw new DocumentUploadException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload file: " + e.getMessage());
-            }
-          })
-          .collect(Collectors.toCollection(ArrayList::new));
-      } catch (Exception e) {
-        log.error("error occurred when uploading files: {}", e.getMessage());
-        throw new DocumentUploadException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload files: " + e.getMessage());
-      }
-    });
+    }
+    String bucketName = properties.getBucket().getName();
+    checkOrCreateBucket(bucketName);
+
+    return CompletableFuture.supplyAsync(() -> files.parallelStream()
+      .map(file -> processFile(file, bucketName))
+      .collect(Collectors.toCollection(ArrayList::new))
+    );
   }
 
   private void checkOrCreateBucket(String bucketName) {
@@ -104,18 +57,58 @@ public class StorageService {
         );
       // if no create the bucket
       if (!found) {
-        log.warn("creating a new bucket: {}", bucketName);
+        log.warn("bucket doesn't exists, creating a new bucket: {}", bucketName);
         minioClient.makeBucket(
           MakeBucketArgs.builder()
             .bucket(bucketName)
             .build()
         );
+        log.info("creating a new bucket successful: {}", bucketName);
       } else {
         log.info("bucket {} already exists", bucketName);
       }
     } catch (Exception e) {
       log.error("error occurred when creating bucket: {}", e.getMessage());
       throw new DocumentUploadException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to check or create bucket: " + e.getMessage());
+    }
+  }
+
+  private String processFile(MultipartFile file, String bucketName) {
+    validateFile(file);
+
+    try {
+      String originalFilename = file.getOriginalFilename();
+      String objectName = formatObjectName(originalFilename);
+      log.info("Uploading file: {}", originalFilename);
+
+      try (InputStream inputStream = file.getInputStream()) {
+        String contentType = file.getContentType();
+        minioClient.putObject(
+          PutObjectArgs.builder()
+            .bucket(bucketName)
+            .object(objectName)
+            .stream(inputStream, file.getSize(), -1)
+            .contentType(contentType)
+            .build()
+        );
+      }
+      log.info("Upload successful: {}", objectName);
+      return formatLink(objectName);
+    } catch (Exception e) {
+      log.error("Error uploading file '{}': {}", file.getOriginalFilename(), e.getMessage());
+      throw new DocumentUploadException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload file: " + e.getMessage());
+    }
+  }
+
+  private void validateFile(MultipartFile file) {
+    if (file == null || file.isEmpty()) {
+      log.warn("Invalid file detected: file is null or empty");
+      throw new DocumentUploadException(HttpStatus.BAD_REQUEST, "File is empty or null");
+    }
+    String originalFilename = file.getOriginalFilename();
+    if (originalFilename == null || originalFilename.trim().isEmpty()) {
+      log.warn("Invalid file detected: filename is null or empty");
+      throw new DocumentUploadException(HttpStatus.BAD_REQUEST, "File name is null or empty");
     }
   }
 

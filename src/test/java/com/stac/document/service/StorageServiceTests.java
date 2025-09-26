@@ -25,7 +25,6 @@ import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -79,9 +78,24 @@ class StorageServiceTests {
   }
 
   @Test
+  void uploadFile_NoFileName_ThrowsDocumentUploadException() {
+    // Arrange
+    when(multipartFile.getOriginalFilename()).thenReturn("");
+    when(multipartFile.isEmpty()).thenReturn(false);
+    when(minioProperties.getBucket()).thenReturn(bucket);
+
+    // Act & Assert
+    DocumentUploadException exception = assertThrows(DocumentUploadException.class,
+      () -> storageService.uploadFile(multipartFile));
+    assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+    assertTrue(exception.getMessage().contains("File name is null or empty"));
+  }
+
+  @Test
   void uploadFile_EmptyFile_ThrowsDocumentUploadException() {
     // Arrange
     when(multipartFile.isEmpty()).thenReturn(true);
+    when(minioProperties.getBucket()).thenReturn(bucket);
 
     // Act & Assert
     DocumentUploadException exception = assertThrows(DocumentUploadException.class,
@@ -216,8 +230,6 @@ class StorageServiceTests {
     // Arrange
     when(minioProperties.getBucket()).thenReturn(bucket);
     when(minioClient.bucketExists(any(BucketExistsArgs.class))).thenReturn(false);
-    when(multipartFile.isEmpty()).thenReturn(false);
-    when(multipartFile.getOriginalFilename()).thenReturn("test.txt");
     doThrow(new RuntimeException("Minio bucket creation failed")).when(minioClient).makeBucket(any(MakeBucketArgs.class));
 
     // Act

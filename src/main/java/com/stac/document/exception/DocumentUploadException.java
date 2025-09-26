@@ -1,10 +1,16 @@
 package com.stac.document.exception;
 
 import org.springframework.http.HttpStatusCode;
-import org.springframework.web.server.ResponseStatusException;
 
-public class DocumentUploadException extends ResponseStatusException {
+public class DocumentUploadException extends RuntimeException {
+  private final HttpStatusCode statusCode;
+
   public DocumentUploadException(HttpStatusCode statusCode, String message) {
-    super(statusCode, message);
+    super(message);
+    this.statusCode = statusCode;
+  }
+
+  public HttpStatusCode getStatusCode() {
+    return statusCode;
   }
 }
