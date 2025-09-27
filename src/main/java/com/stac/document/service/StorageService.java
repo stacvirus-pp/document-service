@@ -6,6 +6,7 @@ import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
+import io.minio.SetBucketPolicyArgs;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -64,11 +65,32 @@ public class StorageService {
             .build()
         );
         log.info("creating a new bucket successful: {}", bucketName);
+
+        String policy = """
+          {
+              "Version": "2012-10-17",
+              "Statement": [
+                  {
+                      "Effect": "Allow",
+                      "Principal": "*",
+                      "Action": ["s3:GetObject"],
+                      "Resource": ["arn:aws:s3:::%s/*"]
+                  }
+              ]
+          }
+          """.formatted(bucketName);
+        minioClient.setBucketPolicy(
+          SetBucketPolicyArgs.builder()
+            .bucket(bucketName)
+            .config(policy)
+            .build()
+        );
+        log.info("Public read policy set for bucket: {}", bucketName);
       } else {
         log.info("bucket {} already exists", bucketName);
       }
     } catch (Exception e) {
-      log.error("error occurred when creating bucket: {}", e.getMessage());
+      log.error("error occurred when creating bucket or setting policy: {}", e.getMessage());
       throw new DocumentUploadException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to check or create bucket: " + e.getMessage());
     }
   }

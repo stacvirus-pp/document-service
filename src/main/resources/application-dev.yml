@@ -4,4 +4,4 @@ minio:
     name: "W7JAWD8uTgAWWeTrhg6s"
     secret: "yQmehszGSgYPn4By1CdF1TwEEFJFWGto7S43TwIH"
   bucket:
-    name: dev
+    name: dev-v2
