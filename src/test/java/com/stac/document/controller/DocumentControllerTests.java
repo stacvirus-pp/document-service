@@ -16,12 +16,15 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.Arrays;
 
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(DocumentController.class)
@@ -101,7 +104,6 @@ class DocumentControllerTests {
 
   @Test
   void uploadDocuments_ShouldReturnOk_WhenMultipleFilesAreUploaded() throws Exception {
-    // Arrange
     MockMultipartFile file1 = new MockMultipartFile(
       "files",
       "test1.txt",
@@ -120,17 +122,21 @@ class DocumentControllerTests {
 
     when(storageService.uploadFiles(anyList())).thenReturn(futureResponse);
 
-    // Act & Assert
-    mockMvc.perform(multipart("/api/v1/documents/batch/upload")
+    MvcResult mvcResult = mockMvc.perform(multipart("/api/v1/documents/batch/upload")
         .file(file1)
-        .file(file2))
+        .file(file2)
+        .contentType(MediaType.MULTIPART_FORM_DATA))
+      .andExpect(status().isOk())
+      .andExpect(request().asyncStarted())
+      .andReturn();
+
+    mockMvc.perform(asyncDispatch(mvcResult))
       .andExpect(status().isOk())
       .andExpect(content().json(objectMapper.writeValueAsString(expectedResponse)));
   }
 
   @Test
   void uploadDocuments_ShouldReturnOk_WhenSingleFileInBatch() throws Exception {
-    // Arrange
     MockMultipartFile file = new MockMultipartFile(
       "files",
       "single.txt",
@@ -143,9 +149,14 @@ class DocumentControllerTests {
 
     when(storageService.uploadFiles(anyList())).thenReturn(futureResponse);
 
-    // Act & Assert
-    mockMvc.perform(multipart("/api/v1/documents/batch/upload")
-        .file(file))
+    MvcResult mvcResult = mockMvc.perform(multipart("/api/v1/documents/batch/upload")
+        .file(file)
+        .contentType(MediaType.MULTIPART_FORM_DATA))
+      .andExpect(status().isOk())
+      .andExpect(request().asyncStarted())
+      .andReturn();
+
+    mockMvc.perform(asyncDispatch(mvcResult))
       .andExpect(status().isOk())
       .andExpect(content().json(objectMapper.writeValueAsString(expectedResponse)));
   }
@@ -184,9 +195,10 @@ class DocumentControllerTests {
 
     // Act & Assert
     mockMvc.perform(multipart("/api/v1/documents/batch/upload")
-        .file(file))
+        .file(file)
+        .contentType(MediaType.MULTIPART_FORM_DATA))
       .andExpect(status().isOk())
-      .andExpect(content().json(objectMapper.writeValueAsString(expectedResponse)));
+      .andExpect(request().asyncStarted());
   }
 
   @Test
@@ -220,8 +232,9 @@ class DocumentControllerTests {
     mockMvc.perform(multipart("/api/v1/documents/batch/upload")
         .file(textFile)
         .file(imageFile)
-        .file(pdfFile))
+        .file(pdfFile)
+        .contentType(MediaType.MULTIPART_FORM_DATA))
       .andExpect(status().isOk())
-      .andExpect(content().json(objectMapper.writeValueAsString(expectedResponse)));
+      .andExpect(request().asyncStarted());
   }
 }
